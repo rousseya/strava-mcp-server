@@ -1,3 +1,13 @@
+---
+title: Strava MCP Server
+emoji: 🏃
+colorFrom: red
+colorTo: yellow
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # Strava MCP Server
 
 A minimal MCP server that exposes Strava activities and athlete performance stats. Uses `uv` for dependency management.
