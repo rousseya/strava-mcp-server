@@ -15,7 +15,6 @@ sys.path.append(os.path.join(os.getcwd(), "src"))
 
 from strava_mcp_server.main import get_activities, get_activity, get_stats
 
-
 # Skip integration tests if no real credentials
 pytestmark = pytest.mark.skipif(
     os.getenv("STRAVA_CLIENT_ID") == "test",
