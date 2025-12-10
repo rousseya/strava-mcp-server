@@ -31,7 +31,7 @@ The access token from the Strava settings page only has `read` scope. To access 
 Run the included OAuth helper:
 
 ```bash
-uv run python get_tokens.py
+uv run python scripts/get_tokens.py
 ```
 
 This will:
@@ -92,7 +92,7 @@ uv run python -m strava_mcp_server
 4) Test the tools
 
 ```bash
-uv run python test_tools.py
+uv run pytest tests/ -v
 ```
 
 ## VS Code MCP Integration

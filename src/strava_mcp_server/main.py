@@ -36,7 +36,9 @@ def get_activities(limit: int = 30) -> list[dict]:
             "moving_time": to_seconds(activity.moving_time),
             "elapsed_time": to_seconds(activity.elapsed_time),
             "elevation_gain": float(activity.total_elevation_gain or 0),
-            "start_date_local": activity.start_date_local.isoformat() if activity.start_date_local else None,
+            "start_date_local": (
+                activity.start_date_local.isoformat() if activity.start_date_local else None
+            ),
         }
         for activity in activities
     ]
@@ -62,11 +64,15 @@ def get_activity(activity_id: int) -> dict:
         "moving_time": to_seconds(activity.moving_time),
         "elapsed_time": to_seconds(activity.elapsed_time),
         "elevation_gain": float(activity.total_elevation_gain or 0),
-        "start_date_local": activity.start_date_local.isoformat() if activity.start_date_local else None,
+        "start_date_local": (
+            activity.start_date_local.isoformat() if activity.start_date_local else None
+        ),
         "average_speed": float(activity.average_speed or 0),
         "max_speed": float(activity.max_speed or 0),
-        "average_heartrate": float(activity.average_heartrate or 0) if activity.average_heartrate else None,
-        "max_heartrate": float(activity.max_heartrate or 0) if activity.max_heartrate else None,
+        "average_heartrate": (
+            float(activity.average_heartrate or 0) if activity.average_heartrate else None
+        ),
+        "max_heartrate": (float(activity.max_heartrate or 0) if activity.max_heartrate else None),
         "suffer_score": getattr(activity, "suffer_score", None),
         "kudos_count": getattr(activity, "kudos_count", None),
     }

@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
 from stravalib.client import Client
@@ -23,7 +22,7 @@ class StravaClient:
         self.client.client_id = self.client_id
         self.client.client_secret = self.client_secret
 
-    def refresh_access_token(self) -> Optional[dict]:
+    def refresh_access_token(self) -> dict | None:
         tokens = self.client.refresh_access_token(
             client_id=self.client_id,
             client_secret=self.client_secret,
@@ -48,4 +47,3 @@ class StravaClient:
         if not athlete:
             return None
         return self.client.get_athlete_stats(athlete.id)
-
