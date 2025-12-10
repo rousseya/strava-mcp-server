@@ -126,3 +126,110 @@ Add to your `mcp.json`:
 - `get_activities` — latest activities (default limit 30)
 - `get_activity` — details for a specific activity id
 - `get_stats` — athlete ride/run totals (recent, YTD, lifetime)
+
+---
+
+## 🚀 Deploy on Hugging Face Spaces
+
+Deploy this MCP server to Hugging Face Spaces for use with Mistral AI or other MCP-compatible clients.
+
+### 1) Create a Hugging Face Space
+
+1. Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+2. Choose:
+   - **Space name**: `strava-mcp-server`
+   - **SDK**: Docker
+   - **Visibility**: Private (recommended for personal use)
+3. Clone the Space repo or link your GitHub repo
+
+### 2) Update Strava App Settings
+
+Update your Strava app's **Authorization Callback Domain**:
+
+1. Go to <https://www.strava.com/settings/api>
+2. Edit your app
+3. Change **Authorization Callback Domain** to:
+   ```
+   your-username-strava-mcp-server.hf.space
+   ```
+
+### 3) Configure Secrets
+
+In your HF Space settings, add these secrets:
+
+| Secret Name | Value |
+|-------------|-------|
+| `STRAVA_CLIENT_ID` | Your Strava Client ID |
+| `STRAVA_CLIENT_SECRET` | Your Strava Client Secret |
+| `SPACE_URL` | `https://your-username-strava-mcp-server.hf.space` |
+| `SECRET_KEY` | Random string for session encryption |
+
+> **Note**: No need to set `STRAVA_ACCESS_TOKEN` or `STRAVA_REFRESH_TOKEN` — the OAuth flow generates them automatically!
+
+### 4) Deploy
+
+Push your code to the Space. The Dockerfile will build and deploy automatically.
+
+### 5) Connect Your Strava Account
+
+1. Visit your Space URL: `https://your-username-strava-mcp-server.hf.space`
+2. Click **"Connect with Strava"**
+3. Authorize the app
+4. You're connected! ✅
+
+### 6) Use with Mistral AI or MCP Clients
+
+Your MCP server endpoint is:
+```
+https://your-username-strava-mcp-server.hf.space/mcp/sse
+```
+
+#### Mistral AI (Le Chat)
+
+Add the MCP server in Mistral's settings using the SSE endpoint above.
+
+#### VS Code with HTTP MCP
+
+```json
+{
+  "servers": {
+    "strava": {
+      "type": "http",
+      "url": "https://your-username-strava-mcp-server.hf.space/mcp"
+    }
+  }
+}
+```
+
+### Local Development (HF Mode)
+
+To test the HF Spaces version locally:
+
+```bash
+# Set environment variables
+export STRAVA_CLIENT_ID=your_client_id
+export STRAVA_CLIENT_SECRET=your_client_secret
+export SPACE_URL=http://localhost:7860
+
+# Run the app
+uv run python app.py
+```
+
+Then visit http://localhost:7860 and click "Connect with Strava".
+
+---
+
+## Development
+
+### Run tests
+
+```bash
+uv run pytest tests/ -v
+```
+
+### Lint and format
+
+```bash
+uv run ruff check src/ tests/
+uv run ruff format src/ tests/
+```

@@ -9,6 +9,8 @@ dependencies = [
     "stravalib",
     "mcp",
     "python-dotenv",
+    "uvicorn",
+    "itsdangerous",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
