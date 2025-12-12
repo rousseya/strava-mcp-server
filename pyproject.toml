@@ -11,6 +11,8 @@ dependencies = [
     "python-dotenv",
     "uvicorn",
     "itsdangerous",
+    "fastapi",
+    "starlette-session",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
