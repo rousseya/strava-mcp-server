@@ -8,8 +8,9 @@ import secrets
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.sessions import SessionMiddleware
 from stravalib.client import Client
@@ -21,6 +22,10 @@ CLIENT_ID = os.getenv("STRAVA_CLIENT_ID")
 CLIENT_SECRET = os.getenv("STRAVA_CLIENT_SECRET")
 SPACE_URL = os.getenv("SPACE_URL", "http://localhost:7860")
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
+API_TOKEN = os.getenv("API_TOKEN")  # Token for MCP authentication
+
+# Security
+security = HTTPBearer(auto_error=False)
 
 # In-memory token storage (for demo; use database in production)
 user_tokens: dict[str, dict] = {}
@@ -350,11 +355,41 @@ def get_stats() -> dict:
     }
 
 
-# Mount MCP SSE transport with custom host validation
+# Mount MCP SSE transport with custom host validation and authentication
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Middleware to verify Bearer token for MCP endpoints."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip auth if no API_TOKEN is configured (open access)
+        if not API_TOKEN:
+            return await call_next(request)
+
+        # Check Authorization header
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Missing or invalid Authorization header"},
+            )
+
+        token = auth_header.replace("Bearer ", "")
+        if token != API_TOKEN:
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Invalid API token"},
+            )
+
+        return await call_next(request)
+
 
 mcp_app = mcp.sse_app()
 mcp_app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+mcp_app.add_middleware(AuthMiddleware)
 app.mount("/mcp", mcp_app)
 
 
