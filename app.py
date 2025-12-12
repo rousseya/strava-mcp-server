@@ -33,7 +33,19 @@ app = FastAPI(
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
 # MCP Server
-mcp = FastMCP("strava")
+mcp = FastMCP(
+    "strava",
+    host="0.0.0.0",
+    port=7860,
+)
+
+# Configure allowed hosts for SSE validation
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "rousseya-strava-mcp-server.hf.space",
+]
 
 
 def get_strava_client(access_token: str) -> Client:
@@ -338,8 +350,12 @@ def get_stats() -> dict:
     }
 
 
-# Mount MCP SSE transport
-app.mount("/mcp", mcp.sse_app())
+# Mount MCP SSE transport with custom host validation
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+mcp_app = mcp.sse_app()
+mcp_app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+app.mount("/mcp", mcp_app)
 
 
 if __name__ == "__main__":
