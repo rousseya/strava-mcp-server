@@ -47,3 +47,16 @@ class StravaClient:
         if not athlete:
             return None
         return self.client.get_athlete_stats(athlete.id)
+
+    def update_activity(self, activity_id: int, **kwargs):
+        """Update an activity with the given parameters.
+
+        Args:
+            activity_id: The Strava activity ID.
+            **kwargs: Activity fields to update (name, type, sport_type, description, etc.)
+
+        Returns:
+            The updated activity.
+        """
+        self.refresh_access_token()
+        return self.client.update_activity(activity_id, **kwargs)

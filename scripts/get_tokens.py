@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OAuth flow to get Strava tokens with activity:read_all scope.
+OAuth flow to get Strava tokens with activity:read_all and activity:write scopes.
 Run this script and follow the instructions.
 """
 
@@ -15,11 +15,11 @@ REDIRECT_URI = "http://localhost:8000/authorized"
 
 client = Client()
 
-# Generate authorization URL with required scopes
+# Generate authorization URL with required scopes (including write for updating activities)
 auth_url = client.authorization_url(
     client_id=CLIENT_ID,
     redirect_uri=REDIRECT_URI,
-    scope=["read", "activity:read_all", "profile:read_all"]
+    scope=["read", "activity:read_all", "activity:write", "profile:read_all"]
 )
 
 print(f"\n1. Opening browser to authorize...\n")
