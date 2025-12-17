@@ -143,20 +143,18 @@ def fix_ebike_activity(activity_id: int) -> dict:
 def detect_ebike_activities(
     limit: int = 30,
     effort_ratio_threshold: float = 4.5,
-    min_elevation: float = 300.0,
+    min_elevation: float = 200.0,
 ) -> list[dict]:
     """Detect mountain bike activities that are likely e-bike based on performance analysis.
 
-    Uses effort-to-climbing ratio to identify activities where the effort is too low
-    relative to the elevation gained. This is calculated as:
-    effort_ratio = suffer_score / (elevation_gain / 100)
-
-    A low effort ratio with significant climbing suggests e-bike assistance.
+    Detection criteria (in order of reliability):
+    1. Cadence data present: E-bikes typically have cadence sensors, regular MTBs often don't
+    2. Low effort-to-climbing ratio: suffer_score / (elevation_gain / 100)
 
     Args:
         limit: Maximum number of activities to analyze (default 30).
         effort_ratio_threshold: Activities with effort ratio below this are suspicious (default 4.5).
-        min_elevation: Minimum elevation gain in meters to consider (default 300).
+        min_elevation: Minimum elevation gain in meters to consider (default 200).
 
     Returns:
         List of suspicious activities with analysis details and recommendation.
@@ -180,12 +178,13 @@ def detect_ebike_activities(
         moving_time_sec = to_seconds(activity.moving_time)
         distance = float(activity.distance or 0)
 
-        # Skip if not enough climbing to analyze
-        if elevation < min_elevation or moving_time_sec < 600:
+        # Skip if not enough data to analyze
+        if moving_time_sec < 600:
             continue
 
-        # Get detailed activity for suffer score and watts
+        # Get detailed activity for cadence and suffer score
         detailed = client.get_activity(activity.id)
+        avg_cadence = getattr(detailed, "average_cadence", None)
         suffer_score = getattr(detailed, "suffer_score", None) or 0
         avg_hr = float(detailed.average_heartrate or 0) if detailed.average_heartrate else None
         avg_watts = getattr(detailed, "average_watts", None)
@@ -195,25 +194,25 @@ def detect_ebike_activities(
         pente_moy = (elevation / distance * 100) if distance > 0 else 0
 
         # Key metric: effort per 100m of elevation gain
-        effort_ratio = suffer_score / (elevation / 100) if elevation > 0 else 0
+        effort_ratio = suffer_score / (elevation / 100) if elevation > 100 else None
 
-        # Determine if suspicious based on low effort ratio
+        # Determine if suspicious
         is_suspicious = False
         reasons = []
 
-        # Low effort ratio is the primary indicator
-        if effort_ratio > 0 and effort_ratio < effort_ratio_threshold:
+        # PRIMARY INDICATOR: Cadence data present suggests e-bike (has cadence sensor)
+        if avg_cadence is not None and avg_cadence > 0:
             is_suspicious = True
             reasons.append(
-                f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f} < {effort_ratio_threshold})"
+                f"Données de cadence présentes ({avg_cadence:.0f} rpm) - capteur de vélo électrique"
             )
 
-        # High speed with steep terrain and low effort
-        if speed_kmh > 14 and pente_moy > 2.0 and effort_ratio < 5.0:
+        # SECONDARY INDICATOR: Low effort ratio with significant climbing
+        if elevation >= min_elevation and effort_ratio is not None and effort_ratio < effort_ratio_threshold:
             if not is_suspicious:
                 is_suspicious = True
             reasons.append(
-                f"Vitesse élevée ({speed_kmh:.1f} km/h) sur terrain pentu ({pente_moy:.1f}%)"
+                f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f} < {effort_ratio_threshold})"
             )
 
         if is_suspicious:
@@ -226,9 +225,9 @@ def detect_ebike_activities(
                 "elevation_gain": round(elevation, 0),
                 "moving_time_min": round(moving_time_sec / 60, 0),
                 "speed_kmh": round(speed_kmh, 1),
-                "pente_moyenne_pct": round(pente_moy, 1),
+                "average_cadence": round(avg_cadence, 0) if avg_cadence else None,
                 "suffer_score": suffer_score,
-                "effort_ratio": round(effort_ratio, 2),
+                "effort_ratio": round(effort_ratio, 2) if effort_ratio else None,
                 "average_hr": round(avg_hr, 0) if avg_hr else None,
                 "average_watts": round(avg_watts, 0) if avg_watts else None,
                 "reasons": reasons,
