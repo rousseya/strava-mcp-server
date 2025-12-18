@@ -10,7 +10,18 @@ app_port: 7860
 
 # Strava MCP Server
 
+[![CI](https://github.com/rousseya/strava-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/rousseya/strava-mcp-server/actions/workflows/ci.yml)
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/rousseya/strava-mcp-server)
+
 A comprehensive MCP server that exposes Strava activities, athlete performance stats, and activity management tools. Uses `uv` for dependency management.
+
+## 🔗 Links
+
+| Resource | URL |
+|----------|-----|
+| 📦 **GitHub Repository** | [github.com/rousseya/strava-mcp-server](https://github.com/rousseya/strava-mcp-server) |
+| 🤗 **Hugging Face Space** | [huggingface.co/spaces/rousseya/strava-mcp-server](https://huggingface.co/spaces/rousseya/strava-mcp-server) |
+| 🔌 **MCP Endpoint** | `https://rousseya-strava-mcp-server.hf.space/mcp/sse` |
 
 ## Features
 
@@ -224,6 +235,17 @@ In your HF Space settings, add these secrets:
 ### 4) Deploy
 
 Push your code to the Space. The Dockerfile will build and deploy automatically.
+
+**Or use automatic deployment via GitHub Actions:**
+
+The repository includes a CI/CD workflow that automatically:
+1. ✅ Runs linting (ruff)
+2. ✅ Runs tests (pytest)
+3. 🚀 Deploys to HF Spaces on push to `main`
+
+To enable auto-deployment, add the `HF_TOKEN` secret to your GitHub repository:
+1. Go to your repo → Settings → Secrets and variables → Actions
+2. Add a new secret named `HF_TOKEN` with your [Hugging Face token](https://huggingface.co/settings/tokens)
 
 ### 5) Connect Your Strava Account
 
