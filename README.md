@@ -10,7 +10,16 @@ app_port: 7860
 
 # Strava MCP Server
 
-A minimal MCP server that exposes Strava activities and athlete performance stats. Uses `uv` for dependency management.
+A comprehensive MCP server that exposes Strava activities, athlete performance stats, and activity management tools. Uses `uv` for dependency management.
+
+## Features
+
+- 📊 **Activity retrieval** — Get your latest activities with detailed metrics
+- 📈 **Performance stats** — Access ride/run totals (recent, YTD, lifetime)
+- 🏷️ **Activity renaming** — Detect and rename activities with generic names
+- 🗺️ **Reverse geocoding** — Automatically convert GPS coordinates to city names
+- ⚡ **E-bike detection** — Find MTB activities that might be e-bike rides
+- 🔐 **Secure deployment** — Bearer token authentication for HF Spaces
 
 ## Setup
 
@@ -131,11 +140,44 @@ Add to your `mcp.json`:
 }
 ```
 
-## Available tools
+## Available Tools
 
-- `get_activities` — latest activities (default limit 30)
-- `get_activity` — details for a specific activity id
-- `get_stats` — athlete ride/run totals (recent, YTD, lifetime)
+### 📊 Activity & Stats
+
+| Tool | Description |
+|------|-------------|
+| `get_activities` | Get latest activities (default limit 30) |
+| `get_activity` | Get detailed info for a specific activity |
+| `get_stats` | Get athlete ride/run totals (recent, YTD, lifetime) |
+
+### 🏷️ Activity Renaming
+
+| Tool | Description |
+|------|-------------|
+| `detect_generic_named_activities` | Find activities with generic names ("Trail le midi", "Morning Run"...) |
+| `get_activity_details_for_naming` | Get comprehensive info (location, effort, terrain) to suggest a better name |
+| `rename_activity` | Rename an activity with a custom name |
+
+### ⚡ E-bike Management
+
+| Tool | Description |
+|------|-------------|
+| `detect_ebike_activities` | Find MTB activities that might be e-bike rides (based on cadence, effort ratio) |
+| `fix_ebike_activity` | Change activity type from MTB to E-MTB |
+| `update_activity_type` | Update any activity's sport type |
+
+### 🗺️ Location Features
+
+The server uses **reverse geocoding** (Nominatim/OpenStreetMap) to automatically convert GPS coordinates to location names:
+- City, suburb, county, state, country
+- Full address from coordinates
+- Works even when Strava doesn't provide location data
+
+### 💡 AI Prompt
+
+| Prompt | Description |
+|--------|-------------|
+| `suggest_activity_name` | Guidelines for AI to suggest creative activity names based on location, effort, and terrain |
 
 ---
 
@@ -171,10 +213,13 @@ In your HF Space settings, add these secrets:
 |-------------|-------|
 | `STRAVA_CLIENT_ID` | Your Strava Client ID |
 | `STRAVA_CLIENT_SECRET` | Your Strava Client Secret |
+| `STRAVA_ACCESS_TOKEN` | Access token from OAuth helper script |
+| `STRAVA_REFRESH_TOKEN` | Refresh token from OAuth helper script |
 | `SPACE_URL` | `https://your-username-strava-mcp-server.hf.space` |
 | `SECRET_KEY` | Random string for session encryption |
+| `API_TOKEN` | (Optional) Bearer token to secure the MCP endpoint |
 
-> **Note**: No need to set `STRAVA_ACCESS_TOKEN` or `STRAVA_REFRESH_TOKEN` — the OAuth flow generates them automatically!
+> **Note**: Since HF Spaces can't be used as OAuth callback domain, generate tokens locally with `scripts/get_tokens.py` and add them as secrets.
 
 ### 4) Deploy
 
@@ -205,11 +250,16 @@ Add the MCP server in Mistral's settings using the SSE endpoint above.
   "servers": {
     "strava": {
       "type": "http",
-      "url": "https://your-username-strava-mcp-server.hf.space/mcp"
+      "url": "https://your-username-strava-mcp-server.hf.space/mcp/sse",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
     }
   }
 }
 ```
+
+> **Note**: If you set an `API_TOKEN` secret, include it in the `Authorization` header.
 
 ### Local Development (HF Mode)
 
@@ -243,3 +293,47 @@ uv run pytest tests/ -v
 uv run ruff check src/ tests/
 uv run ruff format src/ tests/
 ```
+
+## Dependencies
+
+- **mcp** — Model Context Protocol SDK
+- **stravalib** — Strava API client
+- **geopy** — Reverse geocoding (GPS → city names)
+- **fastapi** — Web framework for HF Spaces deployment
+- **python-dotenv** — Environment variable management
+
+## Example Usage
+
+### Detect activities with generic names
+
+```python
+from strava_mcp_server.main import detect_generic_named_activities
+
+activities = detect_generic_named_activities(limit=20)
+for a in activities:
+    print(f'{a["current_name"]} @ {a["location"]}')
+# Output:
+# Trail le midi @ Biot, Provence-Alpes-Côte d'Azur, France
+# Sortie VTT le matin @ Montauroux, Provence-Alpes-Côte d'Azur, France
+```
+
+### Get detailed info for renaming
+
+```python
+from strava_mcp_server.main import get_activity_details_for_naming
+
+details = get_activity_details_for_naming(16721355080)
+print(f'City: {details["location"]["city"]}')
+print(f'Suburb: {details["location"]["suburb"]}')
+print(f'Elevation: {details["metrics"]["elevation_gain_m"]}m')
+print(f'Effort: {details["effort"]["effort_level"]}')
+# Output:
+# City: Biot
+# Suburb: Sophia Antipolis
+# Elevation: 248m
+# Effort: easy
+```
+
+## License
+
+MIT
