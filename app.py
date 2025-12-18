@@ -111,6 +111,9 @@ async def home(request: Request):
             <li><strong>get_activities</strong> — Get your latest activities</li>
             <li><strong>get_activity</strong> — Get details for a specific activity</li>
             <li><strong>get_stats</strong> — Get your ride/run totals</li>
+            <li><strong>detect_generic_named_activities</strong> — Find generic names</li>
+            <li><strong>get_activity_details_for_naming</strong> — Get naming info</li>
+            <li><strong>rename_activity</strong> — Rename an activity</li>
         </ul>
     </body>
     </html>
@@ -358,7 +361,255 @@ def get_stats() -> dict:
     }
 
 
+# Generic activity names to detect (French and English)
+GENERIC_ACTIVITY_NAMES = [
+    # French patterns - Time of day
+    "Trail en soirée",
+    "Trail le midi",
+    "Trail dans l'après-midi",
+    "Trail matinal",
+    "Course en soirée",
+    "Course le midi",
+    "Course dans l'après-midi",
+    "Course matinale",
+    "Sortie vélo en soirée",
+    "Sortie vélo le midi",
+    "Sortie vélo dans l'après-midi",
+    "Vélo en soirée",
+    "Vélo le midi",
+    "Vélo dans l'après-midi",
+    "Vélo matinal",
+    "Randonnée en soirée",
+    "Randonnée le midi",
+    "Randonnée dans l'après-midi",
+    "Marche en soirée",
+    "Marche le midi",
+    "Marche dans l'après-midi",
+    # English patterns - Time of day
+    "Morning Run",
+    "Lunch Run",
+    "Afternoon Run",
+    "Evening Run",
+    "Night Run",
+    "Morning Ride",
+    "Lunch Ride",
+    "Afternoon Ride",
+    "Evening Ride",
+    "Night Ride",
+    "Morning Walk",
+    "Lunch Walk",
+    "Afternoon Walk",
+    "Evening Walk",
+    "Night Walk",
+    "Morning Hike",
+    "Afternoon Hike",
+    "Evening Hike",
+    "Morning Trail Run",
+    "Afternoon Trail Run",
+    "Evening Trail Run",
+    # Generic day patterns
+    "Activité",
+    "Activity",
+    "Workout",
+    "Exercise",
+    "Training",
+    "Sortie",
+    "Balade",
+    "Promenade",
+    # E-bike patterns
+    "E-Bike Ride",
+    "Sortie vélo électrique",
+    "VAE",
+]
+
+
+@mcp.tool()
+def detect_generic_named_activities(limit: int = 50) -> list[dict]:
+    """Detect activities that have generic names and could benefit from renaming.
+
+    Args:
+        limit: Maximum number of activities to scan (default 50).
+
+    Returns:
+        List of activities with generic names, including id, current name, type, and date.
+    """
+    client = get_current_client()
+    activities = list(client.get_activities(limit=limit))
+
+    generic_activities = []
+    for activity in activities:
+        name = activity.name
+        # Check if the name matches any generic pattern (case-insensitive)
+        is_generic = any(
+            generic.lower() in name.lower() or name.lower() in generic.lower()
+            for generic in GENERIC_ACTIVITY_NAMES
+        )
+
+        if is_generic:
+            generic_activities.append(
+                {
+                    "id": activity.id,
+                    "name": name,
+                    "type": str(activity.type),
+                    "distance": float(activity.distance or 0),
+                    "elevation_gain": float(activity.total_elevation_gain or 0),
+                    "start_date_local": (
+                        activity.start_date_local.isoformat() if activity.start_date_local else None
+                    ),
+                }
+            )
+
+    return generic_activities
+
+
+@mcp.tool()
+def get_activity_details_for_naming(activity_id: int) -> dict:
+    """Get comprehensive activity details to help suggest a better name.
+
+    This tool provides all relevant information about an activity that can be used
+    to generate a creative and meaningful name based on location, effort, and performance.
+
+    Args:
+        activity_id: The Strava activity ID.
+
+    Returns:
+        Detailed activity information including location, performance metrics, and effort data.
+    """
+    client = get_current_client()
+    activity = client.get_activity(activity_id)
+
+    # Extract location info
+    location_city = getattr(activity, "location_city", None)
+    location_state = getattr(activity, "location_state", None)
+    location_country = getattr(activity, "location_country", None)
+
+    # Build location string
+    location_parts = [p for p in [location_city, location_state, location_country] if p]
+    location = ", ".join(location_parts) if location_parts else "Unknown location"
+
+    # Calculate performance metrics
+    distance_km = float(activity.distance or 0) / 1000
+    elevation_gain = float(activity.total_elevation_gain or 0)
+    moving_time_seconds = to_seconds(activity.moving_time)
+
+    # Calculate pace/speed
+    if moving_time_seconds > 0 and distance_km > 0:
+        if str(activity.type) in ["Run", "Trail Run", "TrailRun", "Walk", "Hike"]:
+            # Pace in min/km
+            pace_seconds = moving_time_seconds / distance_km
+            pace_minutes = int(pace_seconds // 60)
+            pace_secs = int(pace_seconds % 60)
+            pace = f"{pace_minutes}:{pace_secs:02d} min/km"
+        else:
+            # Speed in km/h
+            speed = (distance_km / moving_time_seconds) * 3600
+            pace = f"{speed:.1f} km/h"
+    else:
+        pace = "N/A"
+
+    # Effort indicators
+    avg_hr = float(activity.average_heartrate or 0) if activity.average_heartrate else None
+    max_hr = float(activity.max_heartrate or 0) if activity.max_heartrate else None
+    suffer_score = getattr(activity, "suffer_score", None)
+
+    # Elevation profile
+    elevation_per_km = elevation_gain / distance_km if distance_km > 0 else 0
+
+    return {
+        "id": activity.id,
+        "current_name": activity.name,
+        "type": str(activity.type),
+        "location": location,
+        "location_city": location_city,
+        "location_state": location_state,
+        "location_country": location_country,
+        "distance_km": round(distance_km, 2),
+        "elevation_gain_m": round(elevation_gain, 0),
+        "elevation_per_km": round(elevation_per_km, 1),
+        "moving_time_minutes": round(moving_time_seconds / 60, 1),
+        "pace_or_speed": pace,
+        "average_heartrate": avg_hr,
+        "max_heartrate": max_hr,
+        "suffer_score": suffer_score,
+        "start_date_local": (
+            activity.start_date_local.isoformat() if activity.start_date_local else None
+        ),
+        "description": getattr(activity, "description", None),
+    }
+
+
+@mcp.tool()
+def rename_activity(activity_id: int, new_name: str) -> dict:
+    """Rename a Strava activity.
+
+    Args:
+        activity_id: The Strava activity ID to rename.
+        new_name: The new name for the activity.
+
+    Returns:
+        Updated activity information with the new name.
+    """
+    client = get_current_client()
+
+    # Update the activity name using stravalib
+    updated = client.update_activity(activity_id, name=new_name)
+
+    return {
+        "id": updated.id,
+        "name": updated.name,
+        "type": str(updated.type),
+        "message": f"Activity renamed to: {updated.name}",
+    }
+
+
 # Mount MCP SSE transport with custom host validation and authentication
+
+
+@mcp.prompt()
+def suggest_activity_name() -> str:
+    """Prompt template to help AI suggest creative activity names."""
+    return """Tu es un assistant pour renommer les activités Strava.
+Voici comment suggérer un bon nom:
+
+## Critères pour un bon nom d'activité
+
+### 1. Lieu géographique
+- Utilise le nom de la ville, région ou lieu emblématique
+- Exemples: "Les crêtes du Vercors", "Boucle autour du lac d'Annecy", "Trail des Calanques"
+
+### 2. Type d'activité et terrain
+- Mentionne le type de terrain (forêt, montagne, côte, urbain)
+- Exemples: "Escapade en forêt de Fontainebleau", "Montée vers le Col du Galibier"
+
+### 3. Effort et performance
+- Pour les sorties intenses: utilise des mots comme "Challenge", "Défi", "Sprint", "Tempo"
+- Pour les sorties longues: "Exploration", "Grande boucle", "Traversée"
+- Pour les sorties faciles: "Balade", "Récupération", "Découverte"
+
+### 4. Conditions météo ou saison (si pertinent)
+- "Trail sous la pluie", "Sortie au lever du soleil", "Course hivernale"
+
+### 5. Éléments mémorables
+- Dénivelé important: "Ascension de 1000m+", "Les 3 cols"
+- Distance notable: "Semi-marathon des vignes", "Century ride"
+
+## Exemples de transformation
+
+| Nom générique | Données | Suggestion |
+|---------------|---------|------------|
+| "Trail le midi" | Grenoble, 15km, 800m D+ | "Les balcons de Chartreuse" |
+| "Course matinale" | Paris, 10km, plat | "Boucle des quais de Seine" |
+| "Vélo en soirée" | Nice, 50km, 600m D+ | "Coucher de soleil sur l'Estérel" |
+| "Morning Run" | Lyon, 8km, Parc | "Tour du Parc de la Tête d'Or" |
+
+## Instructions
+
+1. Utilise `detect_generic_named_activities` pour trouver les activités à renommer
+2. Utilise `get_activity_details_for_naming` pour obtenir les détails de chaque activité
+3. Propose 2-3 suggestions de noms basées sur les critères ci-dessus
+4. Demande confirmation avant de renommer avec `rename_activity`
+
+Garde les noms courts (3-6 mots) et évocateurs!"""
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
