@@ -113,7 +113,7 @@ def get_stats() -> dict:
 
 @mcp.tool()
 def fix_ebike_activity(activity_id: int) -> dict:
-    """Fix a mountain bike activity that was incorrectly categorized as regular MTB instead of E-MTB.
+    """Fix a mountain bike activity incorrectly categorized as MTB instead of E-MTB.
 
     This tool changes the sport_type from 'MountainBikeRide' to 'EMountainBikeRide'.
 
@@ -153,7 +153,7 @@ def detect_ebike_activities(
 
     Args:
         limit: Maximum number of activities to analyze (default 30).
-        effort_ratio_threshold: Activities with effort ratio below this are suspicious (default 4.5).
+        effort_ratio_threshold: Effort ratio below this is suspicious (default 4.5).
         min_elevation: Minimum elevation gain in meters to consider (default 200).
 
     Returns:
@@ -191,7 +191,6 @@ def detect_ebike_activities(
 
         # Calculate metrics
         speed_kmh = (distance / 1000) / (moving_time_sec / 3600) if moving_time_sec > 0 else 0
-        pente_moy = (elevation / distance * 100) if distance > 0 else 0
 
         # Key metric: effort per 100m of elevation gain
         effort_ratio = suffer_score / (elevation / 100) if elevation > 100 else None
@@ -208,18 +207,24 @@ def detect_ebike_activities(
             )
 
         # SECONDARY INDICATOR: Low effort ratio with significant climbing
-        if elevation >= min_elevation and effort_ratio is not None and effort_ratio < effort_ratio_threshold:
+        is_low_effort = (
+            elevation >= min_elevation
+            and effort_ratio is not None
+            and effort_ratio < effort_ratio_threshold
+        )
+        if is_low_effort:
             if not is_suspicious:
                 is_suspicious = True
             reasons.append(
-                f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f} < {effort_ratio_threshold})"
+                f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f})"
             )
 
         if is_suspicious:
+            start_date = activity.start_date_local
             suspicious.append({
                 "id": activity.id,
                 "name": activity.name,
-                "date": activity.start_date_local.isoformat() if activity.start_date_local else None,
+                "date": start_date.isoformat() if start_date else None,
                 "type": activity_type,
                 "distance_km": round(distance / 1000, 1),
                 "elevation_gain": round(elevation, 0),
@@ -231,7 +236,7 @@ def detect_ebike_activities(
                 "average_hr": round(avg_hr, 0) if avg_hr else None,
                 "average_watts": round(avg_watts, 0) if avg_watts else None,
                 "reasons": reasons,
-                "recommendation": "Probablement VTT électrique - utiliser fix_ebike_activity() pour corriger",
+                "recommendation": "Probablement E-MTB - fix_ebike_activity()",
             })
 
     return suspicious

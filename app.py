@@ -8,11 +8,14 @@ import secrets
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware  # noqa: F401
+from starlette.responses import JSONResponse
 from stravalib.client import Client
 
 load_dotenv()
@@ -356,9 +359,6 @@ def get_stats() -> dict:
 
 
 # Mount MCP SSE transport with custom host validation and authentication
-from starlette.middleware.trustedhost import TrustedHostMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

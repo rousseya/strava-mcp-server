@@ -7,6 +7,7 @@ Run this script and follow the instructions.
 import http.server
 import urllib.parse
 import webbrowser
+
 from stravalib.client import Client
 
 CLIENT_ID = "177196"
@@ -22,7 +23,7 @@ auth_url = client.authorization_url(
     scope=["read", "activity:read_all", "activity:write", "profile:read_all"]
 )
 
-print(f"\n1. Opening browser to authorize...\n")
+print("\n1. Opening browser to authorize...\n")
 print(f"   If it doesn't open, go to:\n   {auth_url}\n")
 webbrowser.open(auth_url)
 
@@ -34,7 +35,7 @@ class OAuthHandler(http.server.BaseHTTPRequestHandler):
         
         if "code" in params:
             code = params["code"][0]
-            print(f"2. Got authorization code!")
+            print("2. Got authorization code!")
             
             # Exchange code for tokens
             try:
@@ -47,7 +48,7 @@ class OAuthHandler(http.server.BaseHTTPRequestHandler):
                 access_token = tokens["access_token"]
                 refresh_token = tokens["refresh_token"]
                 
-                print(f"\n✅ SUCCESS! Update your .env and mcp.json with these tokens:\n")
+                print("\n✅ SUCCESS! Update your .env and mcp.json with these tokens:\n")
                 print(f"STRAVA_ACCESS_TOKEN={access_token}")
                 print(f"STRAVA_REFRESH_TOKEN={refresh_token}")
                 
