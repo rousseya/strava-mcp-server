@@ -173,7 +173,7 @@ async def auth(request: Request):
         "client_id": CLIENT_ID,
         "redirect_uri": f"{SPACE_URL}/auth/callback",
         "response_type": "code",
-        "scope": "read,activity:read_all,profile:read_all",
+        "scope": "read,activity:read_all,activity:write,profile:read_all",
         "state": session_id,
     }
     auth_url = f"https://www.strava.com/oauth/authorize?{urlencode(params)}"

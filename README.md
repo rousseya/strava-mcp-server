@@ -45,7 +45,7 @@ uv sync
 
 ### Get OAuth Tokens
 
-The access token from the Strava settings page only has `read` scope. To access activities, you need tokens with `activity:read_all` scope.
+The access token from the Strava settings page only has `read` scope. To access activities and modify them, you need tokens with `activity:read_all` and `activity:write` scopes.
 
 Run the included OAuth helper:
 
@@ -78,7 +78,7 @@ If the helper script doesn't work, you can get tokens manually:
 
 1. Open this URL in your browser (replace `YOUR_CLIENT_ID`):
    ```
-   https://www.strava.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=read,activity:read_all,profile:read_all
+   https://www.strava.com/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost&response_type=code&scope=read,activity:read_all,activity:write,profile:read_all
    ```
 
 2. Authorize the app. You'll be redirected to `http://localhost/?code=AUTHORIZATION_CODE`
