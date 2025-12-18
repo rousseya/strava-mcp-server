@@ -13,6 +13,7 @@ dependencies = [
     "itsdangerous",
     "fastapi",
     "starlette-session",
+    "geopy>=2.4.1",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",

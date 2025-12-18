@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBearer
+from geopy.geocoders import Nominatim
 from mcp.server.fastmcp import FastMCP
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,6 +30,9 @@ API_TOKEN = os.getenv("API_TOKEN")  # Token for MCP authentication
 
 # Security
 security = HTTPBearer(auto_error=False)
+
+# Initialize geocoder for reverse geocoding (GPS -> city name)
+_geocoder = Nominatim(user_agent="strava-mcp-server")
 
 # In-memory token storage (for demo; use database in production)
 user_tokens: dict[str, dict] = {}
@@ -54,6 +58,40 @@ ALLOWED_HOSTS = [
     "0.0.0.0",
     "rousseya-strava-mcp-server.hf.space",
 ]
+
+
+def reverse_geocode(lat: float, lon: float) -> dict:
+    """Convert GPS coordinates to location name using Nominatim (OpenStreetMap).
+
+    Args:
+        lat: Latitude
+        lon: Longitude
+
+    Returns:
+        Dict with city, state, country and full address
+    """
+    try:
+        location = _geocoder.reverse((lat, lon), language="fr", exactly_one=True)
+        if location and location.raw:
+            address = location.raw.get("address", {})
+            city = (
+                address.get("city")
+                or address.get("town")
+                or address.get("village")
+                or address.get("municipality")
+                or address.get("hamlet")
+            )
+            return {
+                "city": city,
+                "state": address.get("state"),
+                "country": address.get("country"),
+                "suburb": address.get("suburb"),
+                "county": address.get("county"),
+                "full_address": location.address,
+            }
+    except Exception:
+        pass
+    return {"city": None, "state": None, "country": None, "full_address": None}
 
 
 def get_strava_client(access_token: str) -> Client:
@@ -446,11 +484,35 @@ def detect_generic_named_activities(limit: int = 50) -> list[dict]:
         )
 
         if is_generic:
+            # Get start coordinates for reverse geocoding
+            start_latlng = getattr(activity, "start_latlng", None)
+            location_city = None
+            location_state = None
+            location_country = None
+
+            # Try reverse geocoding with GPS coordinates
+            if start_latlng:
+                try:
+                    lat = start_latlng.lat
+                    lon = start_latlng.lon
+                    if lat and lon:
+                        geo = reverse_geocode(lat, lon)
+                        location_city = geo.get("city")
+                        location_state = geo.get("state")
+                        location_country = geo.get("country")
+                except Exception:
+                    pass
+
+            # Build location string
+            location_parts = [p for p in [location_city, location_state, location_country] if p]
+            location = ", ".join(location_parts) if location_parts else "Lieu inconnu"
+
             generic_activities.append(
                 {
                     "id": activity.id,
                     "name": name,
                     "type": str(activity.type),
+                    "location": location,
                     "distance": float(activity.distance or 0),
                     "elevation_gain": float(activity.total_elevation_gain or 0),
                     "start_date_local": (
@@ -478,14 +540,30 @@ def get_activity_details_for_naming(activity_id: int) -> dict:
     client = get_current_client()
     activity = client.get_activity(activity_id)
 
-    # Extract location info
+    # Extract location info from Strava
+    start_latlng = getattr(activity, "start_latlng", None)
     location_city = getattr(activity, "location_city", None)
     location_state = getattr(activity, "location_state", None)
     location_country = getattr(activity, "location_country", None)
 
+    # If no city from Strava, try reverse geocoding with GPS coordinates
+    geo_info = {}
+    if start_latlng:
+        try:
+            lat = start_latlng.lat
+            lon = start_latlng.lon
+            if lat and lon:
+                geo_info = reverse_geocode(lat, lon)
+                if not location_city:
+                    location_city = geo_info.get("city")
+                location_state = location_state or geo_info.get("state")
+                location_country = location_country or geo_info.get("country")
+        except Exception:
+            pass
+
     # Build location string
     location_parts = [p for p in [location_city, location_state, location_country] if p]
-    location = ", ".join(location_parts) if location_parts else "Unknown location"
+    location = ", ".join(location_parts) if location_parts else "Lieu inconnu"
 
     # Calculate performance metrics
     distance_km = float(activity.distance or 0) / 1000
@@ -523,6 +601,9 @@ def get_activity_details_for_naming(activity_id: int) -> dict:
         "location_city": location_city,
         "location_state": location_state,
         "location_country": location_country,
+        "suburb": geo_info.get("suburb"),
+        "county": geo_info.get("county"),
+        "full_address": geo_info.get("full_address"),
         "distance_km": round(distance_km, 2),
         "elevation_gain_m": round(elevation_gain, 0),
         "elevation_per_km": round(elevation_per_km, 1),
