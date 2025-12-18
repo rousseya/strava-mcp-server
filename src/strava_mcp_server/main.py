@@ -215,29 +215,29 @@ def detect_ebike_activities(
         if is_low_effort:
             if not is_suspicious:
                 is_suspicious = True
-            reasons.append(
-                f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f})"
-            )
+            reasons.append(f"Effort faible pour le dénivelé (ratio {effort_ratio:.1f})")
 
         if is_suspicious:
             start_date = activity.start_date_local
-            suspicious.append({
-                "id": activity.id,
-                "name": activity.name,
-                "date": start_date.isoformat() if start_date else None,
-                "type": activity_type,
-                "distance_km": round(distance / 1000, 1),
-                "elevation_gain": round(elevation, 0),
-                "moving_time_min": round(moving_time_sec / 60, 0),
-                "speed_kmh": round(speed_kmh, 1),
-                "average_cadence": round(avg_cadence, 0) if avg_cadence else None,
-                "suffer_score": suffer_score,
-                "effort_ratio": round(effort_ratio, 2) if effort_ratio else None,
-                "average_hr": round(avg_hr, 0) if avg_hr else None,
-                "average_watts": round(avg_watts, 0) if avg_watts else None,
-                "reasons": reasons,
-                "recommendation": "Probablement E-MTB - fix_ebike_activity()",
-            })
+            suspicious.append(
+                {
+                    "id": activity.id,
+                    "name": activity.name,
+                    "date": start_date.isoformat() if start_date else None,
+                    "type": activity_type,
+                    "distance_km": round(distance / 1000, 1),
+                    "elevation_gain": round(elevation, 0),
+                    "moving_time_min": round(moving_time_sec / 60, 0),
+                    "speed_kmh": round(speed_kmh, 1),
+                    "average_cadence": round(avg_cadence, 0) if avg_cadence else None,
+                    "suffer_score": suffer_score,
+                    "effort_ratio": round(effort_ratio, 2) if effort_ratio else None,
+                    "average_hr": round(avg_hr, 0) if avg_hr else None,
+                    "average_watts": round(avg_watts, 0) if avg_watts else None,
+                    "reasons": reasons,
+                    "recommendation": "Probablement E-MTB - fix_ebike_activity()",
+                }
+            )
 
     return suspicious
 
